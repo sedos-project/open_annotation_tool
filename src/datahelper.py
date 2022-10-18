@@ -4,15 +4,7 @@ import os
 
 from datetime import datetime
 
-
-class Datahelper:
-    """
-    The class helps ontologically annotating input data files and creating metadata.
-    """
-
-    def __init__(self):
-
-        self.oedatamodel_col_list = [
+OEDATAMODEL_COL_LIST = [
             "id",
             "region",
             "year",
@@ -25,13 +17,21 @@ class Datahelper:
             "source",
             "comment",
         ]
-        self.json_col_list = [
-            "bandwidth_type",
-            "version",
-            "method",
-            "source",
-            "comment",
-        ]
+
+JSON_COL_LIST = [
+    "bandwidth_type",
+    "version",
+    "method",
+    "source",
+    "comment",
+]
+
+class Datahelper:
+    """
+    The class helps ontologically annotating input data files and creating metadata.
+    """
+
+    def __init__(self):
 
         # define paths for csv and oeo_annotation folder
         self.csv_dir = os.path.join(os.getcwd(), "data", "input")
@@ -51,54 +51,19 @@ class Datahelper:
         """
         files: list = get_files_from_directory(directory)
 
-        df_list = [pd.read_csv(filepath_or_buffer=file, sep=";") for file in files]
-
-        # zip only filename from path and dataframe
-        df_dict = dict(zip([file.split("\\")[-1] for file in files], df_list))
-
-        return df_dict
-
-    def add_empty_colums_next_to_annotable_string_columns(self):
-        """
-        The method creates an empty column next to each user-defined annotatable column.
-        :param csv:
-        :return:
-        """
-
-        # add empty columns next to columns that at least one string
-        for filename, df in self.df_dict.items():
-            # offset index for column insertion to right for each added column
-            offset_index = 0
-
-            for col_index, col_header in enumerate(df.columns):
-
-                if (
-                    isinstance(df.dtypes[col_header], object)
-                    and col_header not in self.oedatamodel_col_list
-                ):
-                    # TODO: Currently, the if-check only checks for objects.
-                    #       [1,2,3] & Europe -> object
-                    #       np.nan -> float64
-                    #       Implement a if-check that only creates empty cols next to cols that contain strings such as "Europe" and not [1,2,3], which is used as bandwidth and there is nothing to annotate
-                    df.insert(
-                        loc=col_index + 1 + offset_index,
-                        column=col_header + "_isAbout",
-                        value="valueReference",
-                    )
-                    # offset index for column insertion to right for each added column, increase by 1 for each column
-                    offset_index += 1
-
-            self.to_csv(df_dict=(filename, df))
+        return {file.split("\\")[-1]: pd.read_csv(filepath_or_buffer=file, sep=";") for file in files}
 
     def create_json_dict_from_user_defined_columns(self):
-        # read columns and make dict with column names as keys and current timestamp as value
-
+        """
+        The method reads columns and returns dict with column names as keys and empty value.
+        :param df_dict: Key -> df name; Value -> df.
+        :return: dict: Key -> df name; Value -> json_dict_from_user_defined_columns.
+        """
         user_defined_cols_dict = {
-            (df_name): (set(value.columns.tolist()) - set(self.oedatamodel_col_list))
+            (df_name): (set(value.columns.tolist()) - set(OEDATAMODEL_COL_LIST))
             for (df_name, value) in self.df_dict.items()
         }
 
-        # todo: Think about working with pd.DataFrame.from_dict here
         json_dict_user_col = {}
         for df_name, user_cols in user_defined_cols_dict.items():
             csv_dict = {}
@@ -122,9 +87,7 @@ class Datahelper:
 
         df.where(df.isna(), (self.now.strftime("%d/%m/%Y")), inplace=True)
 
-        version_dict = {k: v.dropna().to_dict() for k, v in df.T.items()}
-
-        return version_dict
+        return {k: v.dropna().to_dict() for k, v in df.T.items()}
 
     def insert_user_column_dict_in_csv(self, columns=None):
         """
@@ -142,17 +105,11 @@ class Datahelper:
 
             self.to_csv(df_dict=(filename, df))
 
-    def make_each_string_col_unique_values(self):
-        """
-        This method reduces each column to annotate to its unique values.
-        :return: df
-        """
-        pass
 
     def to_csv(self, df_dict=None):
         """
         The method saves a dataframe as csv. The df is stored as value in a dict with corresponding df name as key.
-        :param df_dict:
+        :param df_dict: Key -> df name; Value -> df.
         :return:
         """
         df_dict[1].to_csv(
@@ -162,22 +119,6 @@ class Datahelper:
             sep=";",
         )
 
-    ### metadata related-methods -> extra class
-
-    def read_annotation_pairs(self):
-        """
-        The method reads user-defined columns and corresponding annotation columns with annotations.
-        :return:
-        """
-        pass
-
-    def save_annotation_pairs_to_dict(self):
-        """
-        The method saves concept and annotation pairs as dict.
-        :return:
-        """
-        pass
-
 
 def get_files_from_directory(directory: str = None) -> list:
     """
@@ -186,9 +127,8 @@ def get_files_from_directory(directory: str = None) -> list:
     :param directory: csv directory path
     :return: files - list of csv file paths
     """
-    files = [f for f in glob.glob(f"{directory}/*.csv")]
 
-    return files
+    return [f for f in glob.glob(f"{directory}/*.csv")]
 
 
 if __name__ == "__main__":
@@ -197,4 +137,4 @@ if __name__ == "__main__":
 
     datahelper = Datahelper()
 
-    datahelper.create_version_dict()
+    print(datahelper.create_json_dict_from_user_defined_columns())
